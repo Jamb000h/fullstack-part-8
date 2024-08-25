@@ -1,8 +1,26 @@
-const { ApolloServer } = require("@apollo/server");
-const { startStandaloneServer } = require("@apollo/server/standalone");
-const { v1: uuid } = require("uuid");
+import { ApolloServer } from "@apollo/server";
+import { startStandaloneServer } from "@apollo/server/standalone";
+import mongoose from "mongoose";
+import "dotenv/config";
 
-let authors = [
+mongoose.set("strictQuery", false);
+import { Book } from "./models/Book.js";
+import { Author } from "./models/Author.js";
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+console.log("connecting to", MONGODB_URI);
+
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => {
+    console.log("connected to MongoDB");
+  })
+  .catch((error) => {
+    console.log("error connection to MongoDB:", error.message);
+  });
+
+const authors = [
   {
     name: "Robert Martin",
     id: "afa51ab0-344d-11e9-a414-719c6709cf3e",
@@ -94,12 +112,32 @@ let books = [
   },
 ];
 
+for (const author of authors) {
+  try {
+    const newAuthor = new Author({ name: author.name, born: author.born });
+    await newAuthor.save();
+  } catch (e) {}
+}
+
+for (const book of books) {
+  try {
+    const bookAuthor = await Author.findOne({ name: book.author });
+    const newBook = new Book({
+      title: book.title,
+      published: book.published,
+      author: bookAuthor,
+      genres: book.genres,
+    });
+    await newBook.save();
+  } catch (e) {}
+}
+
 const typeDefs = `
   type Book {
     title: String!
     published: Int!
-    author: String!
-    genres: [String!]! 
+    author: Author!
+    genres: [String!]!
     id: ID!
   }
 
@@ -120,7 +158,7 @@ const typeDefs = `
   type Mutation {
     addBook(
       title: String!
-      author: String
+      author: String!
       published: Int!
       genres: [String!]!
     ): Book,
@@ -130,40 +168,43 @@ const typeDefs = `
 
 const resolvers = {
   Query: {
-    bookCount: () => books.length,
-    authorCount: () => authors.length,
-    allBooks: (root, args) =>
-      books
-        .filter((book) => (args.author ? book.author === args.author : book))
-        .filter((book) =>
-          args.genre ? book.genres.includes(args.genre) : book
-        ),
-    allAuthors: () => {
-      return authors.map((author) => {
-        return {
-          ...author,
-          bookCount: books.filter((book) => book.author === author.name).length,
-        };
-      });
-    },
+    bookCount: async () => Book.collection.countDocuments(),
+    authorCount: async () => Author.collection.countDocuments(),
+    allBooks: async (root, args) => Book.find({}),
+    // books
+    //   .filter((book) => (args.author ? book.author === args.author : book))
+    //   .filter((book) =>
+    //     args.genre ? book.genres.includes(args.genre) : book
+    //   )
+    allAuthors: async () => Author.find({}),
+    // return authors.map((author) => {
+    //   return {
+    //     ...author,
+    //     bookCount: books.filter((book) => book.author === author.name).length,
+    //   };
+    // });
   },
   Mutation: {
-    addBook: (root, args) => {
-      if (!authors.find((author) => author.name === args.author)) {
-        authors.push({ name: args.author, id: uuid() });
+    addBook: async (root, args) => {
+      const existingAuthor = await Author.findOne({ name: args.author })
+      if (!existingAuthor) {
+        const author = new Author({ name: args.author });
+        await author.save();
       }
-      const book = { ...args, id: uuid() };
-      books = books.concat(book);
-      return book;
+      const book = new Book({
+        ...args,
+        author: await Author.findOne({ name: args.author }),
+      });
+      return book.save();
     },
     editAuthor: (root, args) => {
-        const author = authors.find((author) => author.name === args.name);
-        if (!author) return null;
-        authors = authors.map((author) =>
-          author.name === args.name ? { ...author, born: args.setBornTo } : author
-        );
-        return authors.find((author) => author.name === args.name);
-      },
+      const author = authors.find((author) => author.name === args.name);
+      if (!author) return null;
+      authors = authors.map((author) =>
+        author.name === args.name ? { ...author, born: args.setBornTo } : author
+      );
+      return authors.find((author) => author.name === args.name);
+    },
   },
 };
 
