@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation } from "@apollo/client";
 import { LOGIN } from "../mutations";
 
-const LoginForm = ({ show, setToken, setPage }) => {
+const LoginForm = ({ show, setToken, setPage, setFavoriteGenre }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -10,8 +10,9 @@ const LoginForm = ({ show, setToken, setPage }) => {
 
   useEffect(() => {
     if (result.data) {
-      const token = result.data.login.value;
+      const token = result.data.login.token.value;
       setToken(token);
+      setFavoriteGenre(result.data.login.favoriteGenre)
       localStorage.setItem("bookstore-user-token", token);
       setPage("books")
     }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Authors from "./components/Authors";
 import Books from "./components/Books";
+import RecommendedBooks from "./components/RecommendedBooks";
 import NewBook from "./components/NewBook";
 import LoginForm from "./components/LoginForm";
 import { ALL_AUTHORS, ALL_BOOKS } from "./queries";
@@ -10,11 +11,14 @@ import EditAuthor from "./components/EditAuthor";
 const App = () => {
   const [page, setPage] = useState("authors");
   const [token, setToken] = useState(null);
+  const [favoriteGenre, setFavoriteGenre] = useState(null)
   const client = useApolloClient()
   const authors = useQuery(ALL_AUTHORS);
   const books = useQuery(ALL_BOOKS);
   const logout = () => {
+    setPage("books")
     setToken(null)
+    setFavoriteGenre(null)
     localStorage.clear()
     client.resetStore()
   }
@@ -26,6 +30,7 @@ const App = () => {
         <button onClick={() => setPage("books")}>books</button>
         {token && (
           <>
+            <button onClick={() => setPage("recommended")}>recommended</button>
             <button onClick={() => setPage("addBook")}>add book</button>
             <button onClick={() => setPage("editAuthor")}>edit author</button>
             <button onClick={logout}>logout</button>
@@ -43,6 +48,8 @@ const App = () => {
 
       <Books show={page === "books"} books={books?.data?.allBooks ?? []} />
 
+      <RecommendedBooks show={page === "recommended"} books={books?.data?.allBooks ?? []} favoriteGenre={favoriteGenre}/>
+
       <NewBook show={page === "addBook"} />
 
       <EditAuthor
@@ -50,7 +57,7 @@ const App = () => {
         authors={authors?.data?.allAuthors ?? []}
       />
 
-      <LoginForm show={page === "loginForm"} setToken={setToken} setPage={setPage} />
+      <LoginForm show={page === "loginForm"} setToken={setToken} setPage={setPage} setFavoriteGenre={setFavoriteGenre}/>
     </div>
   );
 };

@@ -157,6 +157,11 @@ const typeDefs = `
     id: ID!
   }
 
+  type LoginResult {
+    token: Token!
+    favoriteGenre: String!
+  }
+
   type Token {
     value: String!
   }
@@ -184,7 +189,7 @@ const typeDefs = `
     login(
       username: String!
       password: String!
-    ): Token
+    ): LoginResult
   }
 `;
 
@@ -317,7 +322,7 @@ const resolvers = {
         id: user._id,
       };
 
-      return { value: jwt.sign(userForToken, process.env.JWT_SECRET) };
+      return { token: {value: jwt.sign(userForToken, process.env.JWT_SECRET)}, favoriteGenre: user.favoriteGenre };
     },
   },
 };
