@@ -170,23 +170,37 @@ const resolvers = {
   Query: {
     bookCount: async () => Book.collection.countDocuments(),
     authorCount: async () => Author.collection.countDocuments(),
-    allBooks: async (root, args) => Book.find({}),
-    // books
-    //   .filter((book) => (args.author ? book.author === args.author : book))
-    //   .filter((book) =>
-    //     args.genre ? book.genres.includes(args.genre) : book
-    //   )
-    allAuthors: async () => Author.find({}),
-    // return authors.map((author) => {
-    //   return {
-    //     ...author,
-    //     bookCount: books.filter((book) => book.author === author.name).length,
-    //   };
-    // });
+    allBooks: async (root, args) => {
+      // Construct the query filters
+      const queryFilters = [{}]
+
+      if (args.author) {
+        const author = await Author.findOne({ name: args.author });
+        if (!author) {
+          return []
+        }
+
+        queryFilters.push({author: author})
+      }
+
+      if(args.genre) {
+        queryFilters.push({genres: args.genre})
+      }
+
+      return Book.find({$and: queryFilters}).populate({path: "author"})
+    },
+    allAuthors: async () => {
+      // Feels inefficient...
+      const authors = await Author.find({})
+      for (const author of authors) {
+        author.bookCount = await Book.find({author: author}).countDocuments()
+      }
+      return authors
+    },
   },
   Mutation: {
     addBook: async (root, args) => {
-      const existingAuthor = await Author.findOne({ name: args.author })
+      const existingAuthor = await Author.findOne({ name: args.author });
       if (!existingAuthor) {
         const author = new Author({ name: args.author });
         await author.save();
@@ -197,13 +211,11 @@ const resolvers = {
       });
       return book.save();
     },
-    editAuthor: (root, args) => {
-      const author = authors.find((author) => author.name === args.name);
+    editAuthor: async (root, args) => {
+      const author = await Author.findOne({ name: args.name });
       if (!author) return null;
-      authors = authors.map((author) =>
-        author.name === args.name ? { ...author, born: args.setBornTo } : author
-      );
-      return authors.find((author) => author.name === args.name);
+      author.born = args.setBornTo
+      return author.save()
     },
   },
 };
