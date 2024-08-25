@@ -5,23 +5,34 @@ import RecommendedBooks from "./components/RecommendedBooks";
 import NewBook from "./components/NewBook";
 import LoginForm from "./components/LoginForm";
 import { ALL_AUTHORS, ALL_BOOKS } from "./queries";
-import { useQuery, useApolloClient } from "@apollo/client";
+import { BOOK_ADDED } from "./subscriptions";
+import { useQuery, useApolloClient, useSubscription } from "@apollo/client";
 import EditAuthor from "./components/EditAuthor";
 
 const App = () => {
   const [page, setPage] = useState("authors");
   const [token, setToken] = useState(null);
-  const [favoriteGenre, setFavoriteGenre] = useState(null)
-  const client = useApolloClient()
+  const [favoriteGenre, setFavoriteGenre] = useState(null);
+  const client = useApolloClient();
   const authors = useQuery(ALL_AUTHORS);
   const books = useQuery(ALL_BOOKS);
   const logout = () => {
-    setPage("books")
-    setToken(null)
-    setFavoriteGenre(null)
-    localStorage.clear()
-    client.resetStore()
-  }
+    setPage("books");
+    setToken(null);
+    setFavoriteGenre(null);
+    localStorage.clear();
+    client.resetStore();
+  };
+
+  useSubscription(BOOK_ADDED, {
+    onData: ({ data }) => {
+      const newBook = data.data.bookAdded;
+
+      client.cache.updateQuery({ query: ALL_BOOKS }, ({ allBooks }) => {
+        return { allBooks: allBooks.concat(newBook) };
+      });
+    },
+  });
 
   return (
     <div>
@@ -48,7 +59,11 @@ const App = () => {
 
       <Books show={page === "books"} books={books?.data?.allBooks ?? []} />
 
-      <RecommendedBooks show={page === "recommended"} books={books?.data?.allBooks ?? []} favoriteGenre={favoriteGenre}/>
+      <RecommendedBooks
+        show={page === "recommended"}
+        books={books?.data?.allBooks ?? []}
+        favoriteGenre={favoriteGenre}
+      />
 
       <NewBook show={page === "addBook"} />
 
@@ -57,7 +72,12 @@ const App = () => {
         authors={authors?.data?.allAuthors ?? []}
       />
 
-      <LoginForm show={page === "loginForm"} setToken={setToken} setPage={setPage} setFavoriteGenre={setFavoriteGenre}/>
+      <LoginForm
+        show={page === "loginForm"}
+        setToken={setToken}
+        setPage={setPage}
+        setFavoriteGenre={setFavoriteGenre}
+      />
     </div>
   );
 };
